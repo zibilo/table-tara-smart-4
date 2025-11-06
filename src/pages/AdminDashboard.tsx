@@ -9,7 +9,9 @@ import {
   Settings,
   ListOrdered,
   Home,
-  ChefHat
+  ChefHat,
+  Utensils,
+  Tags
 } from "lucide-react";
 
 const AdminDashboard = () => {
@@ -39,6 +41,22 @@ const AdminDashboard = () => {
       path: "/admin/dashboard",
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
+    },
+    {
+      title: "🍽️ Tables",
+      description: "Gérer les numéros de table",
+      icon: Utensils,
+      path: "/admin/tables",
+      color: "text-purple-500",
+      bgColor: "bg-purple-500/10",
+    },
+    {
+      title: "🏷️ Catégories",
+      description: "Gérer les catégories de plats",
+      icon: Tags,
+      path: "/admin/categories",
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
     },
     {
       title: "✅ Gestion des Options par Catégorie",

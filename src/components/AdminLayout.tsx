@@ -7,7 +7,9 @@ import {
   Settings,
   ListOrdered,
   Home,
-  ChefHat
+  ChefHat,
+  Utensils,
+  Tags
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +29,8 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   const navItems = [
     { title: "🏠 Tableau de Bord", path: "/admin/dashboard", icon: Home },
+    { title: "🍽️ Tables", path: "/admin/tables", icon: Utensils },
+    { title: "🏷️ Catégories", path: "/admin/categories", icon: Tags },
     { title: "✅ Gestion des Options", path: "/admin/category-options", icon: ChefHat },
     { title: "🧾 Commandes", path: "/admin/orders", icon: ListOrdered },
     { title: "⚙️ Paramètres", path: "/admin/settings", icon: Settings },
