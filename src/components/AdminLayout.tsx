@@ -3,13 +3,11 @@ import { Button } from "@/components/ui/button";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { 
   LogOut, 
-  Table2, 
-  UtensilsCrossed, 
   LayoutDashboard,
   Settings,
-  ChefHat,
   ListOrdered,
-  Home
+  Home,
+  ChefHat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,13 +26,10 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   };
 
   const navItems = [
-    { title: "Dashboard", path: "/admin/dashboard", icon: Home },
-    { title: "Tables", path: "/admin/tables", icon: Table2 },
-    { title: "Plats", path: "/admin/dishes", icon: UtensilsCrossed },
-    { title: "Catégories", path: "/admin/categories", icon: LayoutDashboard },
-    { title: "Options", path: "/admin/options", icon: ChefHat },
-    { title: "Commandes", path: "/admin/orders", icon: ListOrdered },
-    { title: "Paramètres", path: "/admin/settings", icon: Settings },
+    { title: "🏠 Tableau de Bord", path: "/admin/dashboard", icon: Home },
+    { title: "✅ Gestion des Options", path: "/admin/category-options", icon: ChefHat },
+    { title: "🧾 Commandes", path: "/admin/orders", icon: ListOrdered },
+    { title: "⚙️ Paramètres", path: "/admin/settings", icon: Settings },
   ];
 
   return (

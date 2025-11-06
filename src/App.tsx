@@ -16,6 +16,7 @@ import AdminTables from "./pages/AdminTables";
 import AdminDishes from "./pages/AdminDishes";
 import AdminCategories from "./pages/AdminCategories";
 import AdminOptions from "./pages/AdminOptions";
+import AdminCategoryOptions from "./pages/AdminCategoryOptions";
 import AdminOrders from "./pages/AdminOrders";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
@@ -77,6 +78,14 @@ const App = () => (
               element={
                 <ProtectedAdminRoute>
                   <AdminOptions />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/admin/category-options"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminCategoryOptions />
                 </ProtectedAdminRoute>
               }
             />
