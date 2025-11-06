@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 24 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 24 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 10% 10%;
+
+    /* Warm coral/orange for appetite appeal */
+    --primary: 14 88% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 14 100% 65%;
+
+    /* Fresh green */
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 24 10% 96%;
+    --muted-foreground: 24 5% 45%;
+
+    /* Golden accent */
+    --accent: 45 93% 58%;
+    --accent-foreground: 24 10% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 24 10% 90%;
+    --input: 24 10% 90%;
+    --ring: 14 88% 55%;
+
+    --radius: 0.75rem;
+
+    /* Custom design tokens */
+    --gradient-warm: linear-gradient(135deg, hsl(14 88% 55%), hsl(14 100% 65%));
+    --gradient-fresh: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(14 88% 55%) 0%, hsl(45 93% 58%) 100%);
+    --shadow-soft: 0 2px 8px hsl(24 10% 10% / 0.08);
+    --shadow-medium: 0 4px 16px hsl(24 10% 10% / 0.12);
+    --shadow-large: 0 8px 32px hsl(24 10% 10% / 0.16);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 24 15% 8%;
+    --foreground: 24 5% 95%;
+
+    --card: 24 12% 10%;
+    --card-foreground: 24 5% 95%;
+
+    --popover: 24 12% 10%;
+    --popover-foreground: 24 5% 95%;
+
+    --primary: 14 88% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 14 100% 65%;
+
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 24 10% 15%;
+    --muted-foreground: 24 5% 65%;
+
+    --accent: 45 93% 58%;
+    --accent-foreground: 24 10% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 24 10% 18%;
+    --input: 24 10% 18%;
+    --ring: 14 88% 55%;
+
+    --shadow-soft: 0 2px 8px hsl(0 0% 0% / 0.3);
+    --shadow-medium: 0 4px 16px hsl(0 0% 0% / 0.4);
+    --shadow-large: 0 8px 32px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
