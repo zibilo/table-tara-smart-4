@@ -28,9 +28,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface CategoryData {
+  id: string;
   name: string;
   emoji: string;
-  count: number;
+  display_order: number;
+  created_at: string;
+  dish_count?: number;
 }
 
 const AdminCategories = () => {
@@ -38,7 +41,7 @@ const AdminCategories = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
   const [editingCategory, setEditingCategory] = useState<CategoryData | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -53,39 +56,29 @@ const AdminCategories = () => {
   const fetchCategories = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from("dishes")
-        .select("category");
+      const { data: categoriesData, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("display_order", { ascending: true });
 
       if (error) throw error;
 
-      // Count dishes by category and extract unique categories
-      const categoryMap: { [key: string]: { count: number } } = {};
-      data.forEach((dish) => {
-        const cat = dish.category;
-        if (!categoryMap[cat]) {
-          categoryMap[cat] = { count: 0 };
-        }
-        categoryMap[cat].count++;
-      });
+      // Count dishes for each category
+      const categoriesWithCount = await Promise.all(
+        (categoriesData || []).map(async (category) => {
+          const { count } = await supabase
+            .from("dishes")
+            .select("*", { count: "exact", head: true })
+            .eq("category", getCategoryFullName(category.name, category.emoji || ""));
 
-      // Parse category names to extract emoji and name
-      const categoryStats: CategoryData[] = Object.entries(categoryMap).map(
-        ([fullCategory, stats]) => {
-          // Extract emoji (usually at the start)
-          const emojiMatch = fullCategory.match(/^([\u{1F300}-\u{1F9FF}])/u);
-          const emoji = emojiMatch ? emojiMatch[1] : "";
-          const name = emoji ? fullCategory.replace(emoji, "").trim() : fullCategory;
-          
           return {
-            name,
-            emoji,
-            count: stats.count,
+            ...category,
+            dish_count: count || 0,
           };
-        }
+        })
       );
 
-      setCategories(categoryStats);
+      setCategories(categoriesWithCount);
     } catch (error) {
       console.error("Error fetching categories:", error);
       toast({
@@ -115,16 +108,15 @@ const AdminCategories = () => {
     }
 
     try {
-      const newCategoryName = getCategoryFullName(formData.name.trim(), formData.emoji.trim());
-
       if (editingCategory) {
-        // Update existing category - rename all dishes with this category
-        const oldCategoryName = getCategoryFullName(editingCategory.name, editingCategory.emoji);
-        
+        // Update existing category
         const { error } = await supabase
-          .from("dishes")
-          .update({ category: newCategoryName })
-          .eq("category", oldCategoryName);
+          .from("categories")
+          .update({
+            name: formData.name.trim(),
+            emoji: formData.emoji.trim(),
+          })
+          .eq("id", editingCategory.id);
 
         if (error) throw error;
 
@@ -133,23 +125,30 @@ const AdminCategories = () => {
           description: "Catégorie mise à jour avec succès",
         });
       } else {
-        // Check if category already exists
-        const existingCategory = categories.find(
-          (cat) => getCategoryFullName(cat.name, cat.emoji).toLowerCase() === newCategoryName.toLowerCase()
-        );
-
-        if (existingCategory) {
-          toast({
-            title: "Erreur",
-            description: "Cette catégorie existe déjà",
-            variant: "destructive",
+        // Create new category
+        const { error } = await supabase
+          .from("categories")
+          .insert({
+            name: formData.name.trim(),
+            emoji: formData.emoji.trim(),
+            display_order: categories.length,
           });
-          return;
+
+        if (error) {
+          if (error.code === "23505") {
+            toast({
+              title: "Erreur",
+              description: "Cette catégorie existe déjà",
+              variant: "destructive",
+            });
+            return;
+          }
+          throw error;
         }
 
         toast({
           title: "Succès",
-          description: `Catégorie "${newCategoryName}" créée. Ajoutez des plats à cette catégorie dans la section "Gestion des Plats".`,
+          description: `Catégorie "${getCategoryFullName(formData.name.trim(), formData.emoji.trim())}" créée avec succès`,
         });
       }
 
@@ -170,14 +169,13 @@ const AdminCategories = () => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
-      emoji: category.emoji,
+      emoji: category.emoji || "",
     });
     setIsDialogOpen(true);
   };
 
   const handleDeleteClick = (category: CategoryData) => {
-    const fullName = getCategoryFullName(category.name, category.emoji);
-    setCategoryToDelete(fullName);
+    setCategoryToDelete({ id: category.id, name: getCategoryFullName(category.name, category.emoji || "") });
     setIsConfirmOpen(true);
   };
 
@@ -185,21 +183,32 @@ const AdminCategories = () => {
     if (!categoryToDelete) return;
 
     try {
-      // Check if category has dishes
-      const categoryWithCount = categories.find(
-        (cat) => getCategoryFullName(cat.name, cat.emoji) === categoryToDelete
-      );
+      // Check if category is used by any dishes
+      const { data: dishes, error: dishError } = await supabase
+        .from("dishes")
+        .select("id")
+        .eq("category", categoryToDelete.name)
+        .limit(1);
 
-      if (categoryWithCount && categoryWithCount.count > 0) {
+      if (dishError) throw dishError;
+
+      if (dishes && dishes.length > 0) {
         toast({
           title: "Impossible de supprimer",
-          description: `Cette catégorie contient ${categoryWithCount.count} plat(s). Supprimez ou déplacez ces plats avant de supprimer la catégorie.`,
+          description: "Cette catégorie est utilisée par des plats. Supprimez ou déplacez ces plats avant de supprimer la catégorie.",
           variant: "destructive",
         });
         setIsConfirmOpen(false);
         setCategoryToDelete(null);
         return;
       }
+
+      const { error } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", categoryToDelete.id);
+
+      if (error) throw error;
 
       toast({
         title: "Succès",
@@ -234,8 +243,6 @@ const AdminCategories = () => {
       resetForm();
     }
   };
-
-  const popularEmojis = ["🍔", "🍕", "🥤", "🍰", "🍜", "🍗", "🥗", "🍱", "🌮", "🍣"];
 
   return (
     <AdminLayout>
@@ -294,7 +301,7 @@ const AdminCategories = () => {
                             maxLength={2}
                           />
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {popularEmojis.map((emoji) => (
+                            {["🍔", "🍕", "🥤", "🍰", "🍜", "🍗", "🥗", "🍱", "🌮", "🍣"].map((emoji) => (
                               <Button
                                 key={emoji}
                                 type="button"
@@ -356,45 +363,42 @@ const AdminCategories = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categories.map((category) => {
-                      const fullName = getCategoryFullName(category.name, category.emoji);
-                      return (
-                        <TableRow key={fullName}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {category.emoji && (
-                                <span className="text-2xl">{category.emoji}</span>
-                              )}
-                              <span className="text-lg">{category.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {category.count} plat{category.count > 1 ? "s" : ""}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEdit(category)}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteClick(category)}
-                                disabled={category.count > 0}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {category.emoji && (
+                              <span className="text-2xl">{category.emoji}</span>
+                            )}
+                            <span className="text-lg">{category.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {category.dish_count || 0} plat{(category.dish_count || 0) > 1 ? "s" : ""}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(category)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteClick(category)}
+                              disabled={(category.dish_count || 0) > 0}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               )}
@@ -407,7 +411,7 @@ const AdminCategories = () => {
           onOpenChange={setIsConfirmOpen}
           onConfirm={handleDeleteConfirm}
           title="Supprimer la catégorie"
-          description={`Êtes-vous sûr de vouloir supprimer la catégorie "${categoryToDelete}" ? Cette action est irréversible.`}
+          description={`Êtes-vous sûr de vouloir supprimer la catégorie "${categoryToDelete?.name}" ? Cette action est irréversible.`}
         />
       </div>
     </AdminLayout>

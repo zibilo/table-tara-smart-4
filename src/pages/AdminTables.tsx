@@ -45,66 +45,13 @@ const AdminTables = () => {
   const [editingTable, setEditingTable] = useState<TableData | null>(null);
   const [formData, setFormData] = useState({
     table_number: "",
-    restaurant_id: "",
     is_active: true,
   });
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTables();
-    initializeRestaurant();
   }, []);
-
-  const initializeRestaurant = async () => {
-    try {
-      // Check if a restaurant exists
-      let { data: restaurant, error: fetchError } = await supabase
-        .from("restaurants")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error("Error fetching restaurant:", fetchError);
-        return;
-      }
-
-      // If no restaurant exists, create one
-      if (!restaurant) {
-        const { data: newRestaurant, error: insertError } = await supabase
-          .from("restaurants")
-          .insert({
-            name: "Mon Restaurant",
-            address: "Adresse du restaurant",
-            email_admin: "admin@restaurant.com"
-          })
-          .select("id")
-          .single();
-
-        if (insertError) {
-          console.error("Error creating restaurant:", insertError);
-          toast({
-            title: "Erreur",
-            description: "Impossible de créer le restaurant par défaut",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        restaurant = newRestaurant;
-        toast({
-          title: "Restaurant initialisé",
-          description: "Un restaurant par défaut a été créé",
-        });
-      }
-
-      if (restaurant) {
-        setFormData((prev) => ({ ...prev, restaurant_id: restaurant.id }));
-      }
-    } catch (error) {
-      console.error("Error initializing restaurant:", error);
-    }
-  };
 
   const fetchTables = async () => {
     try {
@@ -140,15 +87,6 @@ const AdminTables = () => {
       return;
     }
 
-    if (!formData.restaurant_id) {
-      toast({
-        title: "Erreur",
-        description: "Restaurant non initialisé. Veuillez actualiser la page.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const tableNumber = parseInt(formData.table_number);
       const qrCodeData = `table-${tableNumber}-${Date.now()}`;
@@ -170,11 +108,62 @@ const AdminTables = () => {
           description: "Table mise à jour avec succès",
         });
       } else {
+        // Get or create restaurant (with better error handling)
+        let restaurantId: string;
+        
+        try {
+          const { data: restaurant, error: fetchError } = await supabase
+            .from("restaurants")
+            .select("id")
+            .limit(1)
+            .maybeSingle();
+
+          if (fetchError) {
+            console.error("Error fetching restaurant:", fetchError);
+          }
+
+          if (restaurant) {
+            restaurantId = restaurant.id;
+          } else {
+            // Create restaurant without authentication check
+            const { data: newRestaurant, error: insertError } = await supabase
+              .from("restaurants")
+              .insert({
+                name: "Mon Restaurant",
+                address: "Adresse du restaurant",
+                email_admin: "admin@restaurant.com"
+              })
+              .select("id")
+              .single();
+
+            if (insertError) {
+              console.error("Error creating restaurant:", insertError);
+              // If creation fails, try to get any existing restaurant again
+              const { data: existingRestaurant } = await supabase
+                .from("restaurants")
+                .select("id")
+                .limit(1)
+                .maybeSingle();
+              
+              if (existingRestaurant) {
+                restaurantId = existingRestaurant.id;
+              } else {
+                throw new Error("Impossible de créer ou récupérer le restaurant. Veuillez contacter l'administrateur.");
+              }
+            } else {
+              restaurantId = newRestaurant.id;
+            }
+          }
+        } catch (error) {
+          console.error("Restaurant initialization error:", error);
+          throw new Error("Erreur lors de l'initialisation du restaurant");
+        }
+
         // Create new table
         const { error } = await supabase.from("tables").insert({
           table_number: tableNumber,
           qr_code_data: qrCodeData,
-          restaurant_id: formData.restaurant_id,
+          restaurant_id: restaurantId,
           is_active: formData.is_active,
         });
 
@@ -193,7 +182,7 @@ const AdminTables = () => {
       console.error("Error saving table:", error);
       toast({
         title: "Erreur",
-        description: error.message || "Une erreur est survenue",
+        description: error.message || "Une erreur est survenue lors de la création de la table",
         variant: "destructive",
       });
     }
@@ -203,7 +192,6 @@ const AdminTables = () => {
     setEditingTable(table);
     setFormData({
       table_number: table.table_number.toString(),
-      restaurant_id: table.restaurant_id,
       is_active: table.is_active,
     });
     setIsDialogOpen(true);
@@ -268,7 +256,6 @@ const AdminTables = () => {
     setEditingTable(null);
     setFormData({
       table_number: "",
-      restaurant_id: formData.restaurant_id,
       is_active: true,
     });
   };
