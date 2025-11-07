@@ -112,13 +112,13 @@ const Menu = () => {
 
       if (error) throw error;
 
-      // Check which dishes have customization options
+      // Check which dishes have customization options (case-insensitive)
       const dishesWithCustomization = await Promise.all(
         (data || []).map(async (dish) => {
           const { data: optionGroups } = await supabase
             .from("category_option_groups")
             .select("id")
-            .eq("category", dish.category)
+            .ilike("category", dish.category) // Use ilike for case-insensitive match
             .limit(1);
 
           return {

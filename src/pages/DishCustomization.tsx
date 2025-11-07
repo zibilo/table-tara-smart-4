@@ -78,11 +78,11 @@ const DishCustomization = () => {
       console.log("🔍 DEBUG - Dish category:", dish.category);
       console.log("🔍 DEBUG - Full dish object:", dish);
 
-      // Fetch option groups for this dish's CATEGORY (not dish_id)
+      // Fetch option groups for this dish's CATEGORY with case-insensitive match
       const { data: groups, error: groupsError } = await supabase
         .from("category_option_groups")
         .select("*")
-        .eq("category", dish.category)
+        .ilike("category", dish.category) // Use ilike for case-insensitive match
         .order("display_order", { ascending: true });
 
       // DEBUG: Log the query result
@@ -93,6 +93,17 @@ const DishCustomization = () => {
 
       if (!groups || groups.length === 0) {
         console.log("⚠️ DEBUG - No option groups found for category:", dish.category);
+        
+        // Check if there are ANY option groups in the database
+        const { data: allGroups } = await supabase
+          .from("category_option_groups")
+          .select("category")
+          .limit(10);
+        
+        console.log("🔍 DEBUG - All available categories in option groups:", allGroups?.map(g => g.category));
+        console.log("⚠️ DEBUG - Comparison - Looking for:", `"${dish.category}"`);
+        console.log("⚠️ DEBUG - Available categories:", allGroups?.map(g => `"${g.category}"`).join(", "));
+        
         setOptionGroups([]);
         setIsLoading(false);
         return;
