@@ -28,8 +28,16 @@ export interface CartItem extends Dish {
   finalPrice?: number;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  emoji: string | null;
+  display_order: number;
+}
+
 const Menu = () => {
   const [dishes, setDishes] = useState<Dish[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +60,7 @@ const Menu = () => {
       return;
     }
 
+    fetchCategories();
     fetchDishes();
     loadCartFromSession();
   }, [restaurantId]);
@@ -73,6 +82,25 @@ const Menu = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("display_order", { ascending: true });
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les catégories",
+        variant: "destructive",
+      });
+    }
+  };
+
   const fetchDishes = async () => {
     try {
       const { data, error } = await supabase
@@ -88,9 +116,9 @@ const Menu = () => {
       const dishesWithCustomization = await Promise.all(
         (data || []).map(async (dish) => {
           const { data: optionGroups } = await supabase
-            .from("dish_option_groups")
+            .from("category_option_groups")
             .select("id")
-            .eq("dish_id", dish.id)
+            .eq("category", dish.category)
             .limit(1);
 
           return {
@@ -158,8 +186,6 @@ const Menu = () => {
     return cart.reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  const categories = ["all", ...new Set(dishes.map((dish) => dish.category))];
-
   const filteredDishes =
     activeCategory === "all"
       ? dishes
@@ -220,13 +246,17 @@ const Menu = () => {
               className="mb-6"
             >
               <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
+                <TabsTrigger value="all" className="whitespace-nowrap">
+                  Tout
+                </TabsTrigger>
                 {categories.map((category) => (
                   <TabsTrigger
-                    key={category}
-                    value={category}
+                    key={category.id}
+                    value={category.name}
                     className="capitalize whitespace-nowrap"
                   >
-                    {category === "all" ? "Tout" : category}
+                    {category.emoji && <span className="mr-1">{category.emoji}</span>}
+                    {category.name}
                   </TabsTrigger>
                 ))}
               </TabsList>
