@@ -74,6 +74,10 @@ const DishCustomization = () => {
 
   const fetchDishOptions = async () => {
     try {
+      // DEBUG: Log the dish category to see what we're searching for
+      console.log("🔍 DEBUG - Dish category:", dish.category);
+      console.log("🔍 DEBUG - Full dish object:", dish);
+
       // Fetch option groups for this dish's CATEGORY (not dish_id)
       const { data: groups, error: groupsError } = await supabase
         .from("category_option_groups")
@@ -81,13 +85,20 @@ const DishCustomization = () => {
         .eq("category", dish.category)
         .order("display_order", { ascending: true });
 
+      // DEBUG: Log the query result
+      console.log("🔍 DEBUG - Query result groups:", groups);
+      console.log("🔍 DEBUG - Query error:", groupsError);
+
       if (groupsError) throw groupsError;
 
       if (!groups || groups.length === 0) {
+        console.log("⚠️ DEBUG - No option groups found for category:", dish.category);
         setOptionGroups([]);
         setIsLoading(false);
         return;
       }
+
+      console.log(`✅ DEBUG - Found ${groups.length} option groups`);
 
       // Fetch options for each group from category_options table
       const groupsWithOptions = await Promise.all(
@@ -98,6 +109,8 @@ const DishCustomization = () => {
             .eq("option_group_id", group.id)
             .eq("is_available", true)
             .order("display_order", { ascending: true });
+
+          console.log(`🔍 DEBUG - Options for group "${group.name}":`, options);
 
           if (optionsError) throw optionsError;
 
@@ -114,9 +127,10 @@ const DishCustomization = () => {
         })
       );
 
+      console.log("✅ DEBUG - Final option groups with options:", groupsWithOptions);
       setOptionGroups(groupsWithOptions);
     } catch (error) {
-      console.error("Error fetching dish options:", error);
+      console.error("❌ ERROR - Error fetching dish options:", error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les options",
