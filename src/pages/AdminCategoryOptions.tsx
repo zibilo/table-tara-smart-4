@@ -30,9 +30,23 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Plus, ChefHat, Pencil, Trash2, Settings2, List, ArrowLeft } from "lucide-react";
+import { Plus, ChefHat, Pencil, Trash2, Settings2, List, ArrowLeft, UtensilsCrossed } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+interface Category {
+  id: string;
+  name: string;
+  emoji: string | null;
+  display_order: number;
+}
+
+interface Dish {
+  id: string;
+  name: string;
+  price: number;
+  is_available: boolean;
+}
 
 interface CategoryOptionGroup {
   id: string;
@@ -53,17 +67,12 @@ interface CategoryOption {
   display_order: number;
 }
 
-const MAIN_CATEGORIES = [
-  { id: "hamburger", name: "Hamburger", emoji: "🍔", color: "bg-orange-500" },
-  { id: "pizza", name: "Pizza", emoji: "🍕", color: "bg-red-500" },
-  { id: "boisson", name: "Boisson", emoji: "🥤", color: "bg-blue-500" },
-  { id: "dessert", name: "Dessert", emoji: "🍰", color: "bg-pink-500" },
-];
-
 const AdminCategoryOptions = () => {
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryDishes, setCategoryDishes] = useState<Dish[]>([]);
   const [optionGroups, setOptionGroups] = useState<CategoryOptionGroup[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [isOptionDialogOpen, setIsOptionDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -90,11 +99,61 @@ const AdminCategoryOptions = () => {
 
   const { toast } = useToast();
 
+  // Fetch categories from database
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
   useEffect(() => {
     if (selectedCategory) {
       fetchOptionGroups();
+      fetchCategoryDishes();
     }
   }, [selectedCategory]);
+
+  const fetchCategories = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("display_order");
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les catégories",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCategoryDishes = async () => {
+    if (!selectedCategory) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("dishes")
+        .select("id, name, price, is_available")
+        .ilike("category", selectedCategory)
+        .order("name");
+
+      if (error) throw error;
+      setCategoryDishes(data || []);
+    } catch (error) {
+      console.error("Error fetching category dishes:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les plats",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchOptionGroups = async () => {
     if (!selectedCategory) return;
@@ -379,7 +438,23 @@ const AdminCategoryOptions = () => {
     if (!open) resetOptionForm();
   };
 
-  const selectedCategoryData = MAIN_CATEGORIES.find((c) => c.id === selectedCategory);
+  const selectedCategoryData = categories.find((c) => c.name === selectedCategory);
+
+  // Generate color class based on category name
+  const getCategoryColor = (name: string) => {
+    const colors = [
+      "bg-orange-500",
+      "bg-red-500", 
+      "bg-blue-500",
+      "bg-pink-500",
+      "bg-green-500",
+      "bg-purple-500",
+      "bg-yellow-500",
+      "bg-indigo-500",
+    ];
+    const index = name.length % colors.length;
+    return colors[index];
+  };
 
   return (
     <AdminLayout>
@@ -395,29 +470,45 @@ const AdminCategoryOptions = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {MAIN_CATEGORIES.map((category) => (
-                    <Card
-                      key={category.id}
-                      className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
-                      onClick={() => setSelectedCategory(category.id)}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-16 h-16 ${category.color} rounded-lg flex items-center justify-center text-4xl`}>
-                            {category.emoji}
+                {isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Chargement des catégories...
+                  </div>
+                ) : categories.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ChefHat className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
+                    <p className="text-muted-foreground mb-4">
+                      Aucune catégorie disponible. Veuillez d'abord créer des catégories.
+                    </p>
+                    <Button onClick={() => window.location.href = "/admin/categories"}>
+                      Aller aux Catégories
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((category) => (
+                      <Card
+                        key={category.id}
+                        className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-primary"
+                        onClick={() => setSelectedCategory(category.name)}
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-16 h-16 ${getCategoryColor(category.name)} rounded-lg flex items-center justify-center text-4xl`}>
+                              {category.emoji || "📦"}
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-semibold">{category.name}</h3>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Cliquez pour configurer les options
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="text-xl font-semibold">Gérer les options du {category.name}</h3>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Cliquez pour configurer
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -433,19 +524,79 @@ const AdminCategoryOptions = () => {
                         onClick={() => {
                           setSelectedCategory(null);
                           setSelectedGroupForOptions(null);
+                          setCategoryDishes([]);
                         }}
                       >
                         <ArrowLeft className="h-4 w-4" />
                       </Button>
                       <div>
                         <CardTitle className="text-2xl flex items-center gap-2">
-                          <span className="text-3xl">{selectedCategoryData?.emoji}</span>
-                          Gestion des Options : {selectedCategoryData?.name}
+                          <span className="text-3xl">{selectedCategoryData?.emoji || "📦"}</span>
+                          Catégorie : {selectedCategoryData?.name}
                         </CardTitle>
                         <CardDescription>
-                          Créez des champs de personnalisation pour cette catégorie
+                          Gérez les options de personnalisation pour cette catégorie
                         </CardDescription>
                       </div>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+
+              {/* Dishes in Category Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UtensilsCrossed className="h-5 w-5" />
+                    Plats dans cette catégorie
+                  </CardTitle>
+                  <CardDescription>
+                    Liste des plats qui utiliseront ces options de personnalisation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {categoryDishes.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">
+                        Aucun plat dans cette catégorie
+                      </p>
+                      <Button onClick={() => window.location.href = "/admin/dishes"} variant="outline">
+                        Ajouter des plats
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {categoryDishes.map((dish) => (
+                        <Card key={dish.id} className="border-2">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-lg">{dish.name}</h4>
+                                <p className="text-sm text-primary font-bold mt-1">
+                                  {dish.price.toFixed(0)} XAF
+                                </p>
+                              </div>
+                              <Badge variant={dish.is_available ? "default" : "secondary"}>
+                                {dish.is_available ? "Disponible" : "Indisponible"}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Option Groups Management */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Champs de Personnalisation</CardTitle>
+                      <CardDescription>
+                        Créez des champs avec des options à cocher pour permettre aux clients de personnaliser leurs plats
+                      </CardDescription>
                     </div>
                     <Button onClick={() => setIsGroupDialogOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
@@ -460,17 +611,18 @@ const AdminCategoryOptions = () => {
                     </div>
                   ) : optionGroups.length === 0 ? (
                     <div className="text-center py-12">
-                      <ChefHat className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
+                      <Settings2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
                       <p className="text-muted-foreground">
-                        Aucun champ d'options. Cliquez sur "Ajouter un champ" pour commencer.
+                        Aucun champ de personnalisation. Cliquez sur "Ajouter un champ" pour commencer.
                       </p>
                     </div>
                   ) : (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Champ Actuel</TableHead>
-                          <TableHead>Type</TableHead>
+                          <TableHead>Nom du Champ</TableHead>
+                          <TableHead>Type de Sélection</TableHead>
+                          <TableHead>Statut</TableHead>
                           <TableHead>Options</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -481,7 +633,12 @@ const AdminCategoryOptions = () => {
                             <TableCell className="font-medium">{group.name}</TableCell>
                             <TableCell>
                               <Badge variant={group.selection_type === "single" ? "default" : "secondary"}>
-                                {group.selection_type === "single" ? "Unique" : "Multiple"}
+                                {group.selection_type === "single" ? "☑ Unique" : "☑☑ Multiple"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={group.is_required ? "destructive" : "outline"}>
+                                {group.is_required ? "Obligatoire" : "Optionnel"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -491,7 +648,7 @@ const AdminCategoryOptions = () => {
                                 onClick={() => handleManageOptions(group)}
                               >
                                 <List className="w-4 h-4 mr-2" />
-                                Cases à cocher
+                                Gérer les cases à cocher
                               </Button>
                             </TableCell>
                             <TableCell className="text-right">
@@ -522,13 +679,14 @@ const AdminCategoryOptions = () => {
 
               {/* Options Management Card */}
               {selectedGroupForOptions && (
-                <Card>
+                <Card className="border-4 border-primary">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle>Liste des Options (Cases à Cocher)</CardTitle>
+                        <CardTitle>📋 Options pour : {selectedGroupForOptions.name}</CardTitle>
                         <CardDescription>
-                          Champ : {selectedGroupForOptions.name}
+                          Type : {selectedGroupForOptions.selection_type === "single" ? "Sélection Unique" : "Sélection Multiple"} • 
+                          {selectedGroupForOptions.is_required ? " Obligatoire" : " Optionnel"}
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
@@ -537,7 +695,7 @@ const AdminCategoryOptions = () => {
                         </Button>
                         <Button onClick={() => setIsOptionDialogOpen(true)}>
                           <Plus className="w-4 h-4 mr-2" />
-                          Ajouter une option
+                          Ajouter une case à cocher
                         </Button>
                       </div>
                     </div>
@@ -547,15 +705,16 @@ const AdminCategoryOptions = () => {
                       <div className="text-center py-12">
                         <Settings2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
                         <p className="text-muted-foreground">
-                          Aucune option. Cliquez sur "Ajouter une option" pour commencer.
+                          Aucune case à cocher. Cliquez sur "Ajouter une case à cocher" pour commencer.
                         </p>
                       </div>
                     ) : (
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Nom de la Case à Cocher</TableHead>
+                            <TableHead>Nom de l'Option</TableHead>
                             <TableHead>Prix Supplémentaire</TableHead>
+                            <TableHead>Disponibilité</TableHead>
                             <TableHead>Ordre</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
@@ -563,9 +722,20 @@ const AdminCategoryOptions = () => {
                         <TableBody>
                           {groupOptions.map((option) => (
                             <TableRow key={option.id}>
-                              <TableCell className="font-medium">{option.name}</TableCell>
+                              <TableCell className="font-medium">
+                                {selectedGroupForOptions.selection_type === "single" ? "⚪" : "☑"} {option.name}
+                              </TableCell>
                               <TableCell>
-                                {option.extra_price > 0 ? `+ ${option.extra_price.toFixed(2)} €` : "Gratuit"}
+                                {option.extra_price > 0 ? (
+                                  <Badge variant="secondary">+ {option.extra_price.toFixed(0)} XAF</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">Gratuit</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={option.is_available ? "default" : "secondary"}>
+                                  {option.is_available ? "Disponible" : "Indisponible"}
+                                </Badge>
                               </TableCell>
                               <TableCell>{option.display_order}</TableCell>
                               <TableCell className="text-right">
@@ -604,10 +774,10 @@ const AdminCategoryOptions = () => {
             <form onSubmit={handleSaveGroup}>
               <DialogHeader>
                 <DialogTitle>
-                  {editingGroup ? "Modifier le champ" : "Ajouter un nouveau champ à cocher"}
+                  {editingGroup ? "Modifier le champ" : "Ajouter un nouveau champ de personnalisation"}
                 </DialogTitle>
                 <DialogDescription>
-                  Créez un groupe d'options pour cette catégorie
+                  Créez un groupe d'options à cocher pour cette catégorie
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -621,10 +791,10 @@ const AdminCategoryOptions = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="group-name">Titre du Champ *</Label>
+                  <Label htmlFor="group-name">Nom du Champ *</Label>
                   <Input
                     id="group-name"
-                    placeholder="Ex: Type de Sandwich, Garniture Supplémentaire"
+                    placeholder="Ex: Type de Hamburger, Choisissez vos Sauces"
                     value={groupFormData.name}
                     onChange={(e) =>
                       setGroupFormData({ ...groupFormData, name: e.target.value })
@@ -632,7 +802,7 @@ const AdminCategoryOptions = () => {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Le titre affiché au client
+                    Ce nom sera affiché au client lors de la commande
                   </p>
                 </div>
 
@@ -648,17 +818,17 @@ const AdminCategoryOptions = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="single">● Sélection Unique (case radio)</SelectItem>
-                      <SelectItem value="multiple">☑ Sélection Multiple (cases à cocher)</SelectItem>
+                      <SelectItem value="single">⚪ Sélection Unique (le client choisit une seule option)</SelectItem>
+                      <SelectItem value="multiple">☑ Sélection Multiple (le client peut choisir plusieurs options)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border rounded-lg p-4">
                   <div className="space-y-0.5">
-                    <Label htmlFor="is-required">Obligatoire ?</Label>
+                    <Label htmlFor="is-required">Ce champ est obligatoire ?</Label>
                     <p className="text-sm text-muted-foreground">
-                      Rendre ce choix obligatoire pour le client
+                      Le client devra obligatoirement faire un choix
                     </p>
                   </div>
                   <Switch
@@ -670,9 +840,9 @@ const AdminCategoryOptions = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between border-t pt-4">
+                <div className="flex items-center justify-between border rounded-lg p-4">
                   <div className="space-y-0.5">
-                    <Label htmlFor="enable-description">📝 Activer la Zone de Description Client</Label>
+                    <Label htmlFor="enable-description">📝 Zone de commentaire client</Label>
                     <p className="text-sm text-muted-foreground">
                       Permet au client d'ajouter des notes spéciales pour ce champ
                     </p>
@@ -697,6 +867,9 @@ const AdminCategoryOptions = () => {
                       setGroupFormData({ ...groupFormData, display_order: parseInt(e.target.value) })
                     }
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Plus le nombre est petit, plus le champ apparaîtra en premier
+                  </p>
                 </div>
               </div>
               <DialogFooter>
@@ -704,7 +877,7 @@ const AdminCategoryOptions = () => {
                   Annuler
                 </Button>
                 <Button type="submit">
-                  {editingGroup ? "Mettre à jour" : "Créer"}
+                  {editingGroup ? "Mettre à jour" : "Créer le champ"}
                 </Button>
               </DialogFooter>
             </form>
@@ -717,18 +890,18 @@ const AdminCategoryOptions = () => {
             <form onSubmit={handleSaveOption}>
               <DialogHeader>
                 <DialogTitle>
-                  {editingOption ? "Modifier l'option" : "Ajouter une nouvelle option"}
+                  {editingOption ? "Modifier l'option" : "Ajouter une case à cocher"}
                 </DialogTitle>
                 <DialogDescription>
-                  Définissez une case à cocher pour ce champ
+                  Créez une option de personnalisation pour : {selectedGroupForOptions?.name}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="option-name">Nom de la Case à Cocher *</Label>
+                  <Label htmlFor="option-name">Nom de l'Option *</Label>
                   <Input
                     id="option-name"
-                    placeholder="Ex: Tomate Fraîche, Oignons Frits, Bacon Croustillant"
+                    placeholder="Ex: Hamburger Royale, Sauce BBQ, Bacon Supplémentaire"
                     value={optionFormData.name}
                     onChange={(e) =>
                       setOptionFormData({ ...optionFormData, name: e.target.value })
@@ -738,28 +911,28 @@ const AdminCategoryOptions = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="extra-price">Prix Supplémentaire (€)</Label>
+                  <Label htmlFor="extra-price">Prix Supplémentaire (XAF)</Label>
                   <Input
                     id="extra-price"
                     type="number"
                     min="0"
-                    step="0.01"
-                    placeholder="0.00"
+                    step="1"
+                    placeholder="0"
                     value={optionFormData.extra_price}
                     onChange={(e) =>
                       setOptionFormData({ ...optionFormData, extra_price: e.target.value })
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Ex: 0.50 pour +0,50 €, 1.00 pour +1,00 €
+                    Laissez 0 si cette option est gratuite
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border rounded-lg p-4">
                   <div className="space-y-0.5">
-                    <Label htmlFor="is-available">Disponible</Label>
+                    <Label htmlFor="is-available">Option disponible</Label>
                     <p className="text-sm text-muted-foreground">
-                      Cette option peut être sélectionnée
+                      Le client peut sélectionner cette option
                     </p>
                   </div>
                   <Switch
@@ -789,7 +962,7 @@ const AdminCategoryOptions = () => {
                   Annuler
                 </Button>
                 <Button type="submit">
-                  {editingOption ? "Mettre à jour" : "Ajouter"}
+                  {editingOption ? "Mettre à jour" : "Ajouter l'option"}
                 </Button>
               </DialogFooter>
             </form>
