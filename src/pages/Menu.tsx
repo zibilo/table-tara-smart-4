@@ -189,7 +189,7 @@ const Menu = () => {
   const filteredDishes =
     activeCategory === "all"
       ? dishes
-      : dishes.filter((dish) => dish.category === activeCategory);
+      : dishes.filter((dish) => dish.category.toLowerCase() === activeCategory.toLowerCase());
 
   return (
     <div className="min-h-screen bg-background pb-24">
