@@ -19,6 +19,7 @@ import AdminOptions from "./pages/AdminOptions";
 import AdminCategoryOptions from "./pages/AdminCategoryOptions";
 import AdminOrders from "./pages/AdminOrders";
 import AdminSettings from "./pages/AdminSettings";
+import DiagnosticCategories from "./pages/DiagnosticCategories";
 import NotFound from "./pages/NotFound";
 import HoverReceiver from "@/visual-edits/VisualEditsMessenger";
 
@@ -102,6 +103,14 @@ const App = () => (
               element={
                 <ProtectedAdminRoute>
                   <AdminSettings />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/admin/diagnostic"
+              element={
+                <ProtectedAdminRoute>
+                  <DiagnosticCategories />
                 </ProtectedAdminRoute>
               }
             />
