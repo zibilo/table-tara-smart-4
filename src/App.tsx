@@ -12,6 +12,7 @@ import DishCustomization from "./pages/DishCustomization";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminManagement from "./pages/AdminManagement";
 import AdminTables from "./pages/AdminTables";
 import AdminDishes from "./pages/AdminDishes";
 import AdminCategories from "./pages/AdminCategories";
@@ -47,6 +48,14 @@ const App = () => (
               element={
                 <ProtectedAdminRoute>
                   <AdminDashboard />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/admin/management"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminManagement />
                 </ProtectedAdminRoute>
               }
             />
